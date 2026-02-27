@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react'
 import { fetchSurahList } from '../api/quranApi'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 
@@ -17,7 +17,6 @@ export const QuranProvider = ({ children }) => {
 
   useEffect(() => {
     const loadSurahList = async () => {
-      // Check cache first
       const cached = localStorage.getItem(CACHE_KEY)
       if (cached) {
         const { data, timestamp } = JSON.parse(cached)
@@ -27,7 +26,6 @@ export const QuranProvider = ({ children }) => {
           return
         }
       }
-      // Fetch fresh
       setLoading(true)
       try {
         const data = await fetchSurahList()
@@ -42,15 +40,23 @@ export const QuranProvider = ({ children }) => {
     loadSurahList()
   }, [])
 
-  const addToRecentlyViewed = (surah) => {
+  const addToRecentlyViewed = useCallback((surah) => {
     setRecentlyViewed(prev => {
       const filtered = prev.filter(s => s.number !== surah.number)
       return [surah, ...filtered].slice(0, 5)
     })
-  }
+  }, [setRecentlyViewed])
+
+  const value = useMemo(() => ({
+    surahList,
+    loading,
+    error,
+    recentlyViewed,
+    addToRecentlyViewed
+  }), [surahList, loading, error, recentlyViewed, addToRecentlyViewed])
 
   return (
-    <QuranContext.Provider value={{ surahList, loading, error, recentlyViewed, addToRecentlyViewed }}>
+    <QuranContext.Provider value={value}>
       {children}
     </QuranContext.Provider>
   )

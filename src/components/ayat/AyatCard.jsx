@@ -5,16 +5,29 @@ import AyatBookmarkButton from './AyatBookmarkButton'
 import AyatActions from './AyatActions'
 import { toArabicNumber } from '../../utils/arabicNumber'
 
-const AyatCard = ({ ayah, surahName }) => {
+const AyatCard = ({ ayah, surahName, surah }) => {
   const { isBookmarked } = useBookmark()
-  const { currentAyah, playing, playAyah, pauseAyah } = useAudio()
+  const { playAyah, pause, playing, currentAyah, currentSurah, currentAyahIndex } = useAudio()
   const { showToast } = useToast()
   const ayahId = `${surahName}-${ayah.number}`
   const isPlaying = currentAyah === ayahId && playing
+  const isCurrentSurah = currentSurah?.number === surah?.number
 
   const handlePlay = () => {
-    if (isPlaying) pauseAyah()
-    else playAyah(ayahId, ayah.audio)
+    if (isPlaying) {
+      pause()
+    } else {
+      // If this ayah is part of current surah and we have index, use that
+      if (isCurrentSurah && currentSurah) {
+        const index = currentSurah.ayahs.findIndex(a => a.number === ayah.number)
+        if (index !== -1) {
+          playAyah(ayahId, ayah.audio, currentSurah, index)
+          return
+        }
+      }
+      // Otherwise just play this ayah standalone
+      playAyah(ayahId, ayah.audio)
+    }
   }
 
   return (

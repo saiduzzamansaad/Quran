@@ -1,10 +1,11 @@
 import { useParams } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { fetchSurahDetailsArabic, fetchSurahDetailsBangla } from '../api/quranApi'
 import { useQuran } from '../context/QuranContext'
 import { useToast } from '../context/ToastContext'
 import Container from '../components/layout/Container'
 import SurahInfo from '../components/surah/SurahInfo'
+import SurahAudioControls from '../components/ayat/SurahAudioControls'
 import AyatList from '../components/ayat/AyatList'
 import Loader from '../components/ui/Loader'
 
@@ -18,7 +19,7 @@ const SurahDetails = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
+  const loadSurah = useCallback(async () => {
     const cacheKey = CACHE_PREFIX + id
     const cached = localStorage.getItem(cacheKey)
     if (cached) {
@@ -32,38 +33,39 @@ const SurahDetails = () => {
       }
     }
 
-    const loadSurah = async () => {
-      setLoading(true)
-      try {
-        const [arabicEdition, banglaEdition] = await Promise.all([
-          fetchSurahDetailsArabic(id),
-          fetchSurahDetailsBangla(id)
-        ])
-        const mergedAyahs = arabicEdition.ayahs.map((arabic, index) => ({
-          number: arabic.number,
-          numberInSurah: arabic.numberInSurah,
-          text: arabic.text,
-          translation: banglaEdition.ayahs[index].text,
-          juz: arabic.juz,
-          audio: `https://cdn.alquran.cloud/media/audio/ayah/ar.alafasy/${arabic.number}`,
-        }))
-        const surahInfo = {
-          ...arabicEdition,
-          ayahs: mergedAyahs,
-          translation: banglaEdition.name,
-        }
-        setSurahData(surahInfo)
-        addToRecentlyViewed(surahInfo)
-        localStorage.setItem(cacheKey, JSON.stringify({ data: surahInfo, timestamp: Date.now() }))
-      } catch (err) {
-        setError(err.message)
-        showToast('সূরা লোড করতে সমস্যা', 'error')
-      } finally {
-        setLoading(false)
+    setLoading(true)
+    try {
+      const [arabicEdition, banglaEdition] = await Promise.all([
+        fetchSurahDetailsArabic(id),
+        fetchSurahDetailsBangla(id)
+      ])
+      const mergedAyahs = arabicEdition.ayahs.map((arabic, index) => ({
+        number: arabic.number,
+        numberInSurah: arabic.numberInSurah,
+        text: arabic.text,
+        translation: banglaEdition.ayahs[index].text,
+        juz: arabic.juz,
+        audio: `https://cdn.alquran.cloud/media/audio/ayah/ar.alafasy/${arabic.number}`,
+      }))
+      const surahInfo = {
+        ...arabicEdition,
+        ayahs: mergedAyahs,
+        translation: banglaEdition.name,
       }
+      setSurahData(surahInfo)
+      addToRecentlyViewed(surahInfo)
+      localStorage.setItem(cacheKey, JSON.stringify({ data: surahInfo, timestamp: Date.now() }))
+    } catch (err) {
+      setError(err.message)
+      showToast('সূরা লোড করতে সমস্যা', 'error')
+    } finally {
+      setLoading(false)
     }
-    loadSurah()
   }, [id, addToRecentlyViewed, showToast])
+
+  useEffect(() => {
+    loadSurah()
+  }, [loadSurah])
 
   if (loading) return <Container><Loader /></Container>
   if (error) return <Container><p className="text-red-500">ত্রুটি: {error}</p></Container>
@@ -72,7 +74,8 @@ const SurahDetails = () => {
   return (
     <Container className="py-8">
       <SurahInfo surah={surahData} />
-      <AyatList ayahs={surahData.ayahs} surahName={surahData.englishName} />
+      <SurahAudioControls surah={surahData} />
+      <AyatList ayahs={surahData.ayahs} surahName={surahData.englishName} surah={surahData} />
     </Container>
   )
 }
